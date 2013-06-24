@@ -87,11 +87,9 @@ def add_new_sink_to(nodes, port):
 def add_new_intermediate_to(nodes, port):
   nodes.append( MeshNode( port                 ))
 
-def connect( node1, node2 ):
+def connect( node1, node2, graph ):
   util.connect_local_nodes(node1.port, node2.port)
-
-def connect_to_random_node( nodes_connected, node ):
-  connect( get_random(nodes_connected), node)
+  return "  N%d -> N%d [dir=both]\n" % (node1.port, node2.port)
   
 # send message through mesh
 #
@@ -188,18 +186,49 @@ if __name__ == '__main__':
 
   nodes_all = nodes_source + nodes_sink + nodes_intermediate
 
-  sleeptime = len(nodes_all)/15 + 2
+  sleeptime = len(nodes_all)/15 + 3
   dbg("warte auf Start der Knoten: " + str(sleeptime) + "s")
   time.sleep(sleeptime)
+
+  # prepare graphviz output: nodes
+  graph = "digraph Mesh { \n  ratio=\"compress\" \n"
+  for node in nodes_all:
+      gv_attrs = ""
+      node_type = ""
+      if node.is_source:
+          gv_attrs = "style=filled fillcolor=greenyellow"
+          node_type = "Q"
+      elif node.is_sink:
+          gv_attrs = "style=filled fillcolor=orange"
+          node_type = "Z"
+      gv_node = "  N%d [label=\"%s %d\" %s]\n" % ( node.port, node_type, node.port, gv_attrs )
+      graph += gv_node
+  graph += "{rank=source; %s }\n" % (' '.join(("N%d" % node.port) for node in nodes_source))
+  graph += "{rank=sink; %s }\n" % (' '.join(("N%d" % node.port) for node in nodes_sink))
+
 
   dbg("verbinde Knoten miteinander")
 
   nodes_to_connect = copy.copy(nodes_all)
 
   # initial node
-  nodes_connected  = [ pop_random(nodes_to_connect) ]
+  nodes_connected = [ pop_random(nodes_to_connect) ]
   for i in range(len(nodes_to_connect)):
-      connect_to_random_node( nodes_connected, pop_random(nodes_to_connect) )
+      node1 = get_random(nodes_connected)
+      node2 = pop_random(nodes_to_connect)
+      graph += connect( node1, node2, graph )
+      nodes_connected.append( node2 )
+
+  # finish and write graph
+  graph += "}"
+  try:
+      graph_file = open("mesh_network.dot", "w")
+      graph_file.write(graph)
+      graph_file.close()
+      subprocess.call(["dot", "mesh_network.dot", "-Tpng", "-o", "mesh_network.png"])
+  except:
+      dbg("Couldn't write graph. No visualization for you.")
+
   dbg("warte bis alles verbunden ist: 2s")
   time.sleep(2)
 
