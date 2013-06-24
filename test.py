@@ -213,11 +213,27 @@ if __name__ == '__main__':
 
   # initial node
   nodes_connected = [ pop_random(nodes_to_connect) ]
+  connections = {}
   for i in range(len(nodes_to_connect)):
       node1 = get_random(nodes_connected)
       node2 = pop_random(nodes_to_connect)
       graph += connect( node1, node2, graph )
+      connections["%d-%d" % (node1.port, node2.port)] = 1
+      connections["%d-%d" % (node2.port, node1.port)] = 1
       nodes_connected.append( node2 )
+
+  # do random other interconnects
+  for i in range(len(nodes_all)/2):
+      node1 = get_random(nodes_all)
+      node2 = get_random(nodes_all)
+      if node1.port == node2.port:
+          continue
+      conn = "%d-%d" % (node1.port, node2.port)
+      if conn in connections:
+          continue
+      graph += connect( node1, node2, graph )
+      connections[conn] = 1
+      connections["%d-%d" % (node2.port, node1.port)] = 1
 
   # finish and write graph
   graph += "}"
@@ -232,7 +248,6 @@ if __name__ == '__main__':
   dbg("warte bis alles verbunden ist: 2s")
   time.sleep(2)
 
-  ### do random other interconnects: TODO ##
 
   exit_code = test_send_receive(1, nodes_source, nodes_sink)
   if exit_code == PASSED:
