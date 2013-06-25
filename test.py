@@ -87,9 +87,16 @@ def add_new_sink_to(nodes, port):
 def add_new_intermediate_to(nodes, port):
   nodes.append( MeshNode( port                 ))
 
-def connect( node1, node2, graph ):
+def connect( node1, node2, graph, connections ):
+  if node1.port == node2.port:
+      return
+  conn = "%d-%d" % (node1.port, node2.port)
+  if conn in connections:
+      return
   util.connect_local_nodes(node1.port, node2.port)
-  return "  N%d -> N%d [dir=both]\n" % (node1.port, node2.port)
+  connections[conn] = 1
+  connections["%d-%d" % (node2.port, node1.port)] = 1
+  graph.append( "  N%d -- N%d" % (node1.port, node2.port) )
   
 # send message through mesh
 #
@@ -191,7 +198,7 @@ if __name__ == '__main__':
   time.sleep(sleeptime)
 
   # prepare graphviz output: nodes
-  graph = "digraph Mesh { \n  ratio=\"compress\" \n"
+  graph = [ "graph Mesh {\n  ratio=\"compress\"" ]
   for node in nodes_all:
       gv_attrs = ""
       node_type = ""
@@ -201,10 +208,10 @@ if __name__ == '__main__':
       elif node.is_sink:
           gv_attrs = "style=filled fillcolor=orange"
           node_type = "Z"
-      gv_node = "  N%d [label=\"%s %d\" %s]\n" % ( node.port, node_type, node.port, gv_attrs )
-      graph += gv_node
-  graph += "{rank=source; %s }\n" % (' '.join(("N%d" % node.port) for node in nodes_source))
-  graph += "{rank=sink; %s }\n" % (' '.join(("N%d" % node.port) for node in nodes_sink))
+      gv_node = "  N%d [label=\"%s %d\" %s]" % ( node.port, node_type, node.port, gv_attrs )
+      graph.append(gv_node)
+  graph.append( "{rank=source; %s }" % (' '.join(("N%d" % node.port) for node in nodes_source)) )
+  graph.append( "{rank=sink; %s }" % (' '.join(("N%d" % node.port) for node in nodes_sink)) )
 
 
   dbg("verbinde Knoten miteinander")
@@ -217,29 +224,20 @@ if __name__ == '__main__':
   for i in range(len(nodes_to_connect)):
       node1 = get_random(nodes_connected)
       node2 = pop_random(nodes_to_connect)
-      graph += connect( node1, node2, graph )
-      connections["%d-%d" % (node1.port, node2.port)] = 1
-      connections["%d-%d" % (node2.port, node1.port)] = 1
+      connect( node1, node2, graph, connections )
       nodes_connected.append( node2 )
 
   # do random other interconnects
   for i in range(len(nodes_all)/2):
       node1 = get_random(nodes_all)
       node2 = get_random(nodes_all)
-      if node1.port == node2.port:
-          continue
-      conn = "%d-%d" % (node1.port, node2.port)
-      if conn in connections:
-          continue
-      graph += connect( node1, node2, graph )
-      connections[conn] = 1
-      connections["%d-%d" % (node2.port, node1.port)] = 1
+      connect( node1, node2, graph, connections )
 
   # finish and write graph
-  graph += "}"
+  graph.append("}")
   try:
       graph_file = open("mesh_network.dot", "w")
-      graph_file.write(graph)
+      graph_file.write("\n".join(graph))
       graph_file.close()
       subprocess.call(["dot", "mesh_network.dot", "-Tpng", "-o", "mesh_network.png"])
   except:
