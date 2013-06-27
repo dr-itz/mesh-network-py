@@ -35,8 +35,9 @@ class MeshNode(object):
       self.is_source  = is_source
       self.is_sink    = is_sink
       self.port       = port
+      self.impl_idx   = random_index(implementations)
 
-      self.executable = get_random( implementations )
+      self.executable = implementations[self.impl_idx]
 
       command = [ self.executable ]
 
@@ -200,14 +201,24 @@ if __name__ == '__main__':
   # prepare graphviz output: nodes
   graph = [ "graph Mesh {\n  ratio=\"compress\"" ]
   for node in nodes_all:
-      gv_attrs = ""
       node_type = ""
-      if node.is_source:
-          gv_attrs = "style=filled fillcolor=greenyellow"
-          node_type = "Q"
-      elif node.is_sink:
-          gv_attrs = "style=filled fillcolor=orange"
-          node_type = "Z"
+      gv_attrs = "";
+      if len(implementations) > 1:
+          gv_attrs = "style=filled fillcolor=\"/pastel19/%d\"" % (node.impl_idx % 9 + 1)
+          if node.is_source:
+              gv_attrs += " shape=box"
+              node_type = "Q"
+          elif node.is_sink:
+              gv_attrs += " shape=box"
+              node_type = "Z"
+      else:
+          if node.is_source:
+              gv_attrs = "style=filled fillcolor=greenyellow"
+              node_type = "Q"
+          elif node.is_sink:
+              gv_attrs = "style=filled fillcolor=orange"
+              node_type = "Z"
+
       gv_node = "  N%d [label=\"%s %d\" %s]" % ( node.port, node_type, node.port, gv_attrs )
       graph.append(gv_node)
   graph.append( "{rank=source; %s }" % (' '.join(("N%d" % node.port) for node in nodes_source)) )
